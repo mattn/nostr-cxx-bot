@@ -1,0 +1,18 @@
+[submodule "deps/dcdpr-libbech32"]
+	path = deps/dcdpr-libbech32
+	url = https://github.com/dcdpr/libbech32
+[submodule "deps/nlohmann-json"]
+	path = deps/nlohmann-json
+	url = https://github.com/nlohmann/json
+[submodule "deps/bitcoin-core-libsecp256k1"]
+	path = deps/bitcoin-core-libsecp256k1
+	url = https://github.com/bitcoin-core/secp256k1
+[submodule "deps/gabime-spdlog"]
+	path = deps/gabime-spdlog
+	url = https://github.com/gabime/spdlog
+[submodule "deps/microsoft-cpprestsdk"]
+	path = deps/microsoft-cpprestsdk
+	url = https://github.com/microsoft/cpprestsdk
+[submodule "deps/p-ranav-argparse"]
+	path = deps/p-ranav-argparse
+	url = https://github.com/p-ranav/argparse

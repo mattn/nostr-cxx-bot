@@ -1,6 +1,7 @@
 #include <cpprest/base_uri.h>
 #include <cpprest/ws_client.h>
 #include <cpprest/ws_msg.h>
+
 #include <ctime>
 #include <exception>
 #include <iostream>
@@ -9,9 +10,16 @@
 #include <string>
 #include <vector>
 
-#include "bech32.h"
+#include <libbech32/bech32.h>
 #include <secp256k1.h>
 #include <secp256k1_schnorrsig.h>
+
+#define SPDLOG_FMT_EXTERNAL
+#include <spdlog/cfg/env.h>
+#include <spdlog/common.h>
+#include <spdlog/spdlog.h>
+
+#include <argparse/argparse.hpp>
 
 static inline std::string digest2hex(const uint8_t *data, size_t len) {
   std::stringstream ss;
@@ -73,7 +81,7 @@ static bool sign_event(const std::basic_string<uint8_t> sk,
   ev["id"] = id;
 
   uint8_t sig[64] = {0};
-  if (!secp256k1_schnorrsig_sign(ctx, sig, digest, &keypair, nullptr)) {
+  if (!secp256k1_schnorrsig_sign32(ctx, sig, digest, &keypair, nullptr)) {
     secp256k1_context_destroy(ctx);
     return false;
   }
@@ -109,17 +117,19 @@ static void convert_bits(Iterator at, Iterator end, Fn fn) {
   }
 }
 
-static time_t now() {
+static inline time_t now() {
   time_t n;
   std::time(&n);
   return n;
 }
 
 int main() {
+  spdlog::cfg::load_env_levels();
+
   uint8_t sk[32];
-  bech32::DecodeResult decoded = bech32::decode(getenv("BOT_NSEC"));
+  bech32::DecodedResult decoded = bech32::decode(getenv("BOT_NSEC"));
   std::cout << decoded.hrp << std::endl;
-  convert_bits<5, 8>(decoded.data.begin(), decoded.data.end(),
+  convert_bits<5, 8>(decoded.dp.begin(), decoded.dp.end(),
                      [&, pos = 0U](unsigned char c) mutable {
                        if (pos < 32)
                          sk[pos++] = c;
