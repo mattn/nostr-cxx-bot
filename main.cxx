@@ -23,6 +23,8 @@
 
 #include <argparse/argparse.hpp>
 
+#include "version.h"
+
 static inline std::string digest2hex(const uint8_t *data, size_t len) {
   std::stringstream ss;
   ss << std::hex;
@@ -126,6 +128,15 @@ static inline time_t now() {
 }
 
 int main(int argc, char* argv[]) {
+  argparse::ArgumentParser program("nostr-cxx-bot", VERSION);
+  try {
+    program.parse_args(argc, argv);
+  } catch (const std::exception &err) {
+    std::cerr << err.what() << std::endl;
+    std::cerr << program;
+    return 1;
+  }
+
   spdlog::cfg::load_env_levels();
 
   auto nsec = getenv("BOT_NSEC");
