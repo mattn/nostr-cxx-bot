@@ -1,0 +1,13 @@
+-std=c++20
+-I
+deps/microsoft-cpprestsdk/Release/include
+-I
+deps/dcdpr-libbech32/include
+-I
+deps/nlohmann-json/include
+-I
+deps/bitcoin-core-libsecp256k1/include
+-I
+deps/gabime-spdlog/include
+-I
+deps/p-ranav-argparse/include
