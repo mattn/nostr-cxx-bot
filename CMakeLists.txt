@@ -16,7 +16,7 @@ add_custom_command(
     OUTPUT ${LIBSECP256K1_LIBRARIES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1
     COMMAND sh
-    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=off && cmake --build build -t secp256k1'
+    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -D BUILD_SHARED_LIBS=off && cmake --build build -t secp256k1'
 )
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/build/src)
 
@@ -32,7 +32,7 @@ add_custom_command(
     OUTPUT ${LIBSPDLOG_LIBRARIES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/gabime-spdlog
     COMMAND sh
-    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=off && cmake --build build -t spdlog'
+    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -D BUILD_SHARED_LIBS=off && cmake --build build -t spdlog'
 )
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/gabime-spdlog/build)
 
@@ -44,21 +44,25 @@ add_custom_command(
     OUTPUT ${LIBBECH32_LIBRARIES}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/dcdpr-libbech32
     COMMAND sh
-    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=off && cmake --build build -t bech32'
+    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -D BUILD_SHARED_LIBS=off && cmake --build build -t bech32'
 )
 link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/dcdpr-libbech32/build)
 
 #--------------------------------------------------
 # libcpprest
-#set(LIBCPPREST_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk/build/libcpprest.a)
-#add_custom_target(libcpprest DEPENDS ${LIBCPPREST_LIBRARIES})
-#add_custom_command(
-#    OUTPUT ${LIBCPPREST_LIBRARIES}
-#    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk
-#    COMMAND sh
-#    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DBUILD_SHARED_LIBS=off && cmake --build build -t cpprest'
-#)
-#link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk/build)
+if ("${CMAKE_BUILD_TYPE}" STREQUAL "Debug")
+    set(LIBCPPREST_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk/build/Debug/Binaries/libcpprest.a)
+else()
+    set(LIBCPPREST_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk/build/Release/Binaries/libcpprest.a)
+endif()
+add_custom_target(libcpprest DEPENDS ${LIBCPPREST_LIBRARIES})
+add_custom_command(
+    OUTPUT ${LIBCPPREST_LIBRARIES}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk
+    COMMAND sh
+    ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -D CMAKE_CXX_FLAGS="-Wno-format-truncation" -D BUILD_SHARED_LIBS=off && cmake --build build -t cpprest'
+)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/microsoft-cpprestsdk/build)
 
 #--------------------------------------------------
 # nostr-cxx-bot-core
@@ -70,20 +74,22 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/deps/nlohmann-json/include
     ${PROJECT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/include
     ${PROJECT_SOURCE_DIR}/deps/gabime-spdlog/include
-    #${PROJECT_SOURCE_DIR}/deps/microsoft-cpprestsdk/include
+    ${PROJECT_SOURCE_DIR}/deps/microsoft-cpprestsdk/include
     ${PROJECT_SOURCE_DIR}/deps/p-ranav-argparse/include
 )
 add_library (${t_} INTERFACE)
 add_dependencies(${t_} libsecp256k1)
 add_dependencies(${t_} libbech32)
 add_dependencies(${t_} libspdlog)
+add_dependencies(${t_} libcpprest)
 target_link_libraries(${t_} INTERFACE crypto)
-target_link_libraries(${t_} INTERFACE cpprest)
 target_link_libraries(${t_} INTERFACE fmt)
 target_link_libraries(${t_} INTERFACE ${LIBSECP256K1_LIBRARIES})
 target_link_libraries(${t_} INTERFACE ${LIBBECH32_LIBRARIES})
 target_link_libraries(${t_} INTERFACE ${LIBSPDLOG_LIBRARIES})
-#target_link_libraries(${t_} INTERFACE ${LIBCPPREST_LIBRARIES})
+target_link_libraries(${t_} INTERFACE ${LIBCPPREST_LIBRARIES})
+target_link_libraries(${t_} INTERFACE z)
+target_link_libraries(${t_} INTERFACE ssl)
 
 #--------------------------------------------------
 # nostr-cxx-bot
