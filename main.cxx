@@ -2,6 +2,7 @@
 #include <cpprest/ws_client.h>
 #include <cpprest/ws_msg.h>
 
+#include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <iostream>
@@ -9,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <cassert>
 
 #include <libbech32/bech32.h>
 #include <secp256k1.h>
@@ -57,7 +59,7 @@ static bool sign_event(const std::basic_string<uint8_t> sk,
   }
 
   secp256k1_xonly_pubkey spubkey;
-  if (!secp256k1_keypair_xonly_pub(ctx, &spubkey, NULL, &keypair)) {
+  if (!secp256k1_keypair_xonly_pub(ctx, &spubkey, nullptr, &keypair)) {
     secp256k1_context_destroy(ctx);
     return false;
   }
@@ -123,11 +125,16 @@ static inline time_t now() {
   return n;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
   spdlog::cfg::load_env_levels();
 
+  auto nsec = getenv("BOT_NSEC");
+  if (nsec == nullptr) {
+    std::cerr << argv[0] << ": BOT_NSEC must be set" << std::endl;
+    return 1;
+  }
   uint8_t sk[32];
-  bech32::DecodedResult decoded = bech32::decode(getenv("BOT_NSEC"));
+  bech32::DecodedResult decoded = bech32::decode(nsec);
   std::cout << decoded.hrp << std::endl;
   convert_bits<5, 8>(decoded.dp.begin(), decoded.dp.end(),
                      [&, pos = 0U](unsigned char c) mutable {
