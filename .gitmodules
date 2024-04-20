@@ -13,6 +13,7 @@
 [submodule "deps/microsoft-cpprestsdk"]
 	path = deps/microsoft-cpprestsdk
 	url = https://github.com/microsoft/cpprestsdk
+	ignore = dirty
 [submodule "deps/p-ranav-argparse"]
 	path = deps/p-ranav-argparse
 	url = https://github.com/p-ranav/argparse
