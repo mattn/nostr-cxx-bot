@@ -137,6 +137,8 @@ int main() {
     std::cerr << e.what() << std::endl;
     return 1;
   }
+
+  int cpp = 0;
   while (true) {
     try {
       auto line = client.receive().get().extract_string().get();
@@ -149,10 +151,14 @@ int main() {
       auto content = (std::string)payload[2]["content"];
       std::cout << content << std::endl;
 
-      if (content == "あいうえ") {
+      if (content == "C++") {
+        cpp++;
+        std::stringstream ss;
+        ss << cpp;
+
         nlohmann::json ev;
         ev["kind"] = 1;
-        ev["content"] = "お";
+        ev["content"] = ss.str();
         ev["created_at"] = now();
         std::vector<std::vector<std::string>> tags = {{"e", payload[2]["id"]}};
         ev["tags"] = tags;

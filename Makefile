@@ -6,7 +6,7 @@ OBJS = $(subst .cc,.o,$(subst .cxx,.o,$(subst .cpp,.o,$(SRCS))))
 
 CXXFLAGS = -std=c++17 -static
 LIBS = -static-libgcc -static-libstdc++ -lcpprest -lcrypto -lsecp256k1
-TARGET = nostr-bot
+TARGET = nostr-cxx-bot
 ifeq ($(OS),Windows_NT)
 TARGET := $(TARGET).exe
 endif
