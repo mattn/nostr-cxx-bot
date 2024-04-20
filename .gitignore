@@ -1,2 +1,3 @@
 *.o
-nostr-bot
+nostr-cxx-bot
+build
