@@ -74,7 +74,7 @@ include_directories(
     ${PROJECT_SOURCE_DIR}/deps/nlohmann-json/include
     ${PROJECT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/include
     ${PROJECT_SOURCE_DIR}/deps/gabime-spdlog/include
-    ${PROJECT_SOURCE_DIR}/deps/microsoft-cpprestsdk/include
+    ${PROJECT_SOURCE_DIR}/deps/microsoft-cpprestsdk/Release/include
     ${PROJECT_SOURCE_DIR}/deps/p-ranav-argparse/include
 )
 add_library (${t_} INTERFACE)
