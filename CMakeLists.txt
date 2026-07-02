@@ -5,6 +5,8 @@ include(CheckLibraryExists)
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+option(STATIC_BUILD "Link the nostr-cxx-bot executable fully statically" OFF)
+
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -std=c++20 -Wextra ${CMAKE_C_FLAGS}")
 set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++20 -Wall -Wextra ${CMAKE_C_FLAGS}")
 
@@ -82,19 +84,32 @@ add_dependencies(${t_} libsecp256k1)
 add_dependencies(${t_} libbech32)
 add_dependencies(${t_} libspdlog)
 add_dependencies(${t_} libcpprest)
-target_link_libraries(${t_} INTERFACE crypto)
+# Order matters for static linking: a library must appear after everything
+# that references it. cpprest depends on ssl, ssl on crypto, so they follow
+# the archives in that order.
 target_link_libraries(${t_} INTERFACE ${LIBSECP256K1_LIBRARIES})
 target_link_libraries(${t_} INTERFACE ${LIBBECH32_LIBRARIES})
 target_link_libraries(${t_} INTERFACE ${LIBSPDLOG_LIBRARIES})
 target_link_libraries(${t_} INTERFACE ${LIBCPPREST_LIBRARIES})
-target_link_libraries(${t_} INTERFACE z)
 target_link_libraries(${t_} INTERFACE ssl)
+target_link_libraries(${t_} INTERFACE crypto)
+target_link_libraries(${t_} INTERFACE z)
 
 #--------------------------------------------------
 # nostr-cxx-bot
 set (t_ nostr-cxx-bot)
 add_executable(${t_} main.cxx)
 target_link_libraries(${t_} PRIVATE nostr-cxx-bot-core)
+
+if(STATIC_BUILD)
+    # -static links libc/libstdc++/libgcc statically as well. The duplicate
+    # std::placeholders symbols from libstdc++.a are harmless, hence
+    # --allow-multiple-definition. pthread/dl must follow the archives above.
+    target_link_options(${t_} PRIVATE
+        -static -static-libgcc -static-libstdc++
+        -Wl,--allow-multiple-definition)
+    target_link_libraries(${t_} PRIVATE pthread dl)
+endif()
 
 enable_testing()
 add_test(test nostr-cxx-bot-test)
