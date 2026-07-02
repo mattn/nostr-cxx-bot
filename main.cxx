@@ -16,7 +16,6 @@
 #include <secp256k1.h>
 #include <secp256k1_schnorrsig.h>
 
-#define SPDLOG_FMT_EXTERNAL
 #include <spdlog/cfg/env.h>
 #include <spdlog/common.h>
 #include <spdlog/spdlog.h>
