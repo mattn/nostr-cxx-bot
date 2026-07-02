@@ -128,6 +128,96 @@ static inline time_t now() {
   return n;
 }
 
+static constexpr auto RELAY_URL = "wss://yabu.me";
+static constexpr int HISTORY_LIMIT = 500;
+
+// Decode a bech32 "nsec" string into a 32-byte secret key.
+static bool load_secret_key(const std::string &prog, const char *nsec,
+                            uint8_t sk[32]) {
+  bech32::DecodedResult decoded;
+  try {
+    decoded = bech32::decode(nsec);
+  } catch (const std::exception &e) {
+    std::cerr << prog << ": failed to decode BOT_NSEC: " << e.what()
+              << std::endl;
+    return false;
+  }
+  if (decoded.hrp != "nsec") {
+    std::cerr << prog << ": BOT_NSEC must be a valid nsec key" << std::endl;
+    return false;
+  }
+  unsigned int written = 0;
+  convert_bits<5, 8>(decoded.dp.begin(), decoded.dp.end(),
+                     [&](unsigned char c) {
+                       if (written < 32)
+                         sk[written++] = c;
+                     });
+  if (written != 32) {
+    std::cerr << prog << ": BOT_NSEC is not a valid 32-byte key" << std::endl;
+    return false;
+  }
+  return true;
+}
+
+// Connect to the relay and send the subscription request.
+static bool connect_and_subscribe(
+    web::websockets::client::websocket_client &client) {
+  try {
+    client.connect(web::uri(RELAY_URL)).wait();
+    nlohmann::json req = {"REQ", "sub",
+                          {{"kinds", {1}}, {"limit", HISTORY_LIMIT}}};
+    std::cout << req.dump() << std::endl;
+    web::websockets::client::websocket_outgoing_message msg;
+    msg.set_utf8_message(req.dump());
+    client.send(msg);
+  } catch (std::exception &e) {
+    std::cerr << e.what() << std::endl;
+    return false;
+  }
+  return true;
+}
+
+// Build a signed kind-1 reply carrying the count and referencing reply_to.
+static bool build_reply(const uint8_t *sk, int count,
+                        const std::string &reply_to, nlohmann::json &ev) {
+  ev["kind"] = 1;
+  ev["content"] = std::to_string(count);
+  ev["created_at"] = now();
+  ev["tags"] = std::vector<std::vector<std::string>>{{"e", reply_to}};
+  return sign_event(sk, ev);
+}
+
+// Handle a single incoming websocket line; reply when content equals "C++".
+static void handle_message(web::websockets::client::websocket_client &client,
+                           const uint8_t *sk, const std::string &line,
+                           int &cpp) {
+  if (line.empty())
+    return;
+  std::cout << line << std::endl;
+  auto payload = nlohmann::json::parse(line);
+  if (!payload.is_array() || payload.size() < 3 || payload[0] != "EVENT")
+    return;
+  auto event = payload[2];
+  if (!event.contains("content") || !event["content"].is_string())
+    return;
+  auto content = event["content"].get<std::string>();
+  std::cout << content << std::endl;
+  if (content != "C++")
+    return;
+
+  nlohmann::json ev;
+  if (!build_reply(sk, ++cpp, event["id"].get<std::string>(), ev)) {
+    std::cerr << "failed to sign event" << std::endl;
+    return;
+  }
+
+  nlohmann::json reply = {"EVENT", ev};
+  std::cout << reply.dump() << std::endl;
+  web::websockets::client::websocket_outgoing_message msg;
+  msg.set_utf8_message(reply.dump());
+  client.send(msg);
+}
+
 int main(int argc, char* argv[]) {
   argparse::ArgumentParser program("nostr-cxx-bot", VERSION);
   try {
@@ -146,41 +236,12 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   uint8_t sk[32];
-  bech32::DecodedResult decoded;
-  try {
-    decoded = bech32::decode(nsec);
-  } catch (const std::exception &e) {
-    std::cerr << argv[0] << ": failed to decode BOT_NSEC: " << e.what()
-              << std::endl;
+  if (!load_secret_key(argv[0], nsec, sk))
     return 1;
-  }
-  if (decoded.hrp != "nsec") {
-    std::cerr << argv[0] << ": BOT_NSEC must be a valid nsec key" << std::endl;
-    return 1;
-  }
-  unsigned int written = 0;
-  convert_bits<5, 8>(decoded.dp.begin(), decoded.dp.end(),
-                     [&](unsigned char c) {
-                       if (written < 32)
-                         sk[written++] = c;
-                     });
-  if (written != 32) {
-    std::cerr << argv[0] << ": BOT_NSEC is not a valid 32-byte key" << std::endl;
-    return 1;
-  }
 
   web::websockets::client::websocket_client client;
-  try {
-    client.connect(web::uri("wss://yabu.me")).wait();
-    web::websockets::client::websocket_outgoing_message msg;
-    nlohmann::json req = {"REQ", "sub", {{"kinds", {1}}, {"limit", 500}}};
-    std::cout << req.dump() << std::endl;
-    msg.set_utf8_message(req.dump());
-    client.send(msg);
-  } catch (std::exception &e) {
-    std::cerr << e.what() << std::endl;
+  if (!connect_and_subscribe(client))
     return 1;
-  }
 
   int cpp = 0;
   while (true) {
@@ -194,44 +255,10 @@ int main(int argc, char* argv[]) {
     }
 
     try {
-      if (line.empty())
-        continue;
-      std::cout << line << std::endl;
-      auto payload = nlohmann::json::parse(line);
-      if (!payload.is_array() || payload.size() < 3 || payload[0] != "EVENT")
-        continue;
-      auto event = payload[2];
-      if (!event.contains("content") || !event["content"].is_string())
-        continue;
-      auto content = event["content"].get<std::string>();
-      std::cout << content << std::endl;
-
-      if (content == "C++") {
-        cpp++;
-        std::stringstream ss;
-        ss << cpp;
-
-        nlohmann::json ev;
-        ev["kind"] = 1;
-        ev["content"] = ss.str();
-        ev["created_at"] = now();
-        std::vector<std::vector<std::string>> tags = {{"e", event["id"]}};
-        ev["tags"] = tags;
-        if (!sign_event(sk, ev)) {
-          std::cerr << "failed to sign event" << std::endl;
-          continue;
-        }
-
-        web::websockets::client::websocket_outgoing_message msg;
-        nlohmann::json reply = {"EVENT", ev};
-        std::cout << reply.dump() << std::endl;
-        msg.set_utf8_message(reply.dump());
-        client.send(msg);
-      }
+      handle_message(client, sk, line, cpp);
     } catch (std::exception &e) {
       // A malformed or unexpected message must not kill the bot.
       std::cerr << e.what() << std::endl;
-      continue;
     }
   }
 }
