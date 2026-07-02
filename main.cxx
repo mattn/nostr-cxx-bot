@@ -5,12 +5,15 @@
 #include <cstdlib>
 #include <ctime>
 #include <exception>
+#include <iomanip>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <cassert>
+
+#include <openssl/evp.h>
 
 #include <libbech32/bech32.h>
 #include <secp256k1.h>
@@ -27,7 +30,7 @@
 static inline std::string digest2hex(const uint8_t *data, size_t len) {
   std::stringstream ss;
   ss << std::hex;
-  for (int i = 0; i < len; ++i) {
+  for (size_t i = 0; i < len; ++i) {
     ss << std::setw(2) << std::setfill('0') << (int)data[i];
   }
   return ss.str();
@@ -43,18 +46,17 @@ static inline std::vector<uint8_t> hex2bytes(const std::string &hex) {
   return bytes;
 }
 
-static bool sign_event(const std::basic_string<uint8_t> sk,
-                       nlohmann::json &ev) {
+static bool sign_event(const uint8_t *sk, nlohmann::json &ev) {
   secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN |
                                                     SECP256K1_CONTEXT_VERIFY);
 
-  if (!secp256k1_ec_seckey_verify(ctx, sk.data())) {
+  if (!secp256k1_ec_seckey_verify(ctx, sk)) {
     secp256k1_context_destroy(ctx);
     return false;
   }
 
   secp256k1_keypair keypair;
-  if (!secp256k1_keypair_create(ctx, &keypair, sk.data())) {
+  if (!secp256k1_keypair_create(ctx, &keypair, sk)) {
     secp256k1_context_destroy(ctx);
     return false;
   }
@@ -144,13 +146,28 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   uint8_t sk[32];
-  bech32::DecodedResult decoded = bech32::decode(nsec);
-  std::cout << decoded.hrp << std::endl;
+  bech32::DecodedResult decoded;
+  try {
+    decoded = bech32::decode(nsec);
+  } catch (const std::exception &e) {
+    std::cerr << argv[0] << ": failed to decode BOT_NSEC: " << e.what()
+              << std::endl;
+    return 1;
+  }
+  if (decoded.hrp != "nsec") {
+    std::cerr << argv[0] << ": BOT_NSEC must be a valid nsec key" << std::endl;
+    return 1;
+  }
+  unsigned int written = 0;
   convert_bits<5, 8>(decoded.dp.begin(), decoded.dp.end(),
-                     [&, pos = 0U](unsigned char c) mutable {
-                       if (pos < 32)
-                         sk[pos++] = c;
+                     [&](unsigned char c) {
+                       if (written < 32)
+                         sk[written++] = c;
                      });
+  if (written != 32) {
+    std::cerr << argv[0] << ": BOT_NSEC is not a valid 32-byte key" << std::endl;
+    return 1;
+  }
 
   web::websockets::client::websocket_client client;
   try {
@@ -167,15 +184,26 @@ int main(int argc, char* argv[]) {
 
   int cpp = 0;
   while (true) {
+    std::string line;
     try {
-      auto line = client.receive().get().extract_string().get();
+      line = client.receive().get().extract_string().get();
+    } catch (std::exception &e) {
+      // A failed receive means the connection is gone; stop the bot.
+      std::cerr << e.what() << std::endl;
+      return 1;
+    }
+
+    try {
       if (line.empty())
         continue;
       std::cout << line << std::endl;
       auto payload = nlohmann::json::parse(line);
-      if (payload[0] != "EVENT")
+      if (!payload.is_array() || payload.size() < 3 || payload[0] != "EVENT")
         continue;
-      auto content = (std::string)payload[2]["content"];
+      auto event = payload[2];
+      if (!event.contains("content") || !event["content"].is_string())
+        continue;
+      auto content = event["content"].get<std::string>();
       std::cout << content << std::endl;
 
       if (content == "C++") {
@@ -187,19 +215,23 @@ int main(int argc, char* argv[]) {
         ev["kind"] = 1;
         ev["content"] = ss.str();
         ev["created_at"] = now();
-        std::vector<std::vector<std::string>> tags = {{"e", payload[2]["id"]}};
+        std::vector<std::vector<std::string>> tags = {{"e", event["id"]}};
         ev["tags"] = tags;
-        sign_event(sk, ev);
+        if (!sign_event(sk, ev)) {
+          std::cerr << "failed to sign event" << std::endl;
+          continue;
+        }
 
         web::websockets::client::websocket_outgoing_message msg;
-        nlohmann::json event = {"EVENT", ev};
-        std::cout << event.dump() << std::endl;
-        msg.set_utf8_message(event.dump());
+        nlohmann::json reply = {"EVENT", ev};
+        std::cout << reply.dump() << std::endl;
+        msg.set_utf8_message(reply.dump());
         client.send(msg);
       }
     } catch (std::exception &e) {
+      // A malformed or unexpected message must not kill the bot.
       std::cerr << e.what() << std::endl;
-      return 1;
+      continue;
     }
   }
 }
