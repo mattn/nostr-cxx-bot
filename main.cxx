@@ -2,6 +2,7 @@
 #include <cpprest/ws_client.h>
 #include <cpprest/ws_msg.h>
 
+#include <cassert>
 #include <cstdlib>
 #include <ctime>
 #include <exception>
@@ -11,7 +12,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <cassert>
 
 #include <openssl/evp.h>
 
@@ -160,12 +160,12 @@ static bool load_secret_key(const std::string &prog, const char *nsec,
 }
 
 // Connect to the relay and send the subscription request.
-static bool connect_and_subscribe(
-    web::websockets::client::websocket_client &client) {
+static bool
+connect_and_subscribe(web::websockets::client::websocket_client &client) {
   try {
     client.connect(web::uri(RELAY_URL)).wait();
-    nlohmann::json req = {"REQ", "sub",
-                          {{"kinds", {1}}, {"limit", HISTORY_LIMIT}}};
+    nlohmann::json req = {
+        "REQ", "sub", {{"kinds", {1}}, {"limit", HISTORY_LIMIT}}};
     std::cout << req.dump() << std::endl;
     web::websockets::client::websocket_outgoing_message msg;
     msg.set_utf8_message(req.dump());
@@ -218,7 +218,7 @@ static void handle_message(web::websockets::client::websocket_client &client,
   client.send(msg);
 }
 
-int main(int argc, char* argv[]) {
+int main(int argc, char *argv[]) {
   argparse::ArgumentParser program("nostr-cxx-bot", VERSION);
   try {
     program.parse_args(argc, argv);
