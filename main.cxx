@@ -174,15 +174,26 @@ int main(int argc, char* argv[]) {
 
   int cpp = 0;
   while (true) {
+    std::string line;
     try {
-      auto line = client.receive().get().extract_string().get();
+      line = client.receive().get().extract_string().get();
+    } catch (std::exception &e) {
+      // A failed receive means the connection is gone; stop the bot.
+      std::cerr << e.what() << std::endl;
+      return 1;
+    }
+
+    try {
       if (line.empty())
         continue;
       std::cout << line << std::endl;
       auto payload = nlohmann::json::parse(line);
-      if (payload[0] != "EVENT")
+      if (!payload.is_array() || payload.size() < 3 || payload[0] != "EVENT")
         continue;
-      auto content = (std::string)payload[2]["content"];
+      auto event = payload[2];
+      if (!event.contains("content") || !event["content"].is_string())
+        continue;
+      auto content = event["content"].get<std::string>();
       std::cout << content << std::endl;
 
       if (content == "C++") {
@@ -194,7 +205,7 @@ int main(int argc, char* argv[]) {
         ev["kind"] = 1;
         ev["content"] = ss.str();
         ev["created_at"] = now();
-        std::vector<std::vector<std::string>> tags = {{"e", payload[2]["id"]}};
+        std::vector<std::vector<std::string>> tags = {{"e", event["id"]}};
         ev["tags"] = tags;
         if (!sign_event(sk, ev)) {
           std::cerr << "failed to sign event" << std::endl;
@@ -208,8 +219,9 @@ int main(int argc, char* argv[]) {
         client.send(msg);
       }
     } catch (std::exception &e) {
+      // A malformed or unexpected message must not kill the bot.
       std::cerr << e.what() << std::endl;
-      return 1;
+      continue;
     }
   }
 }
