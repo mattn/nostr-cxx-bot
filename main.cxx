@@ -146,7 +146,14 @@ int main(int argc, char* argv[]) {
     return 1;
   }
   uint8_t sk[32];
-  bech32::DecodedResult decoded = bech32::decode(nsec);
+  bech32::DecodedResult decoded;
+  try {
+    decoded = bech32::decode(nsec);
+  } catch (const std::exception &e) {
+    std::cerr << argv[0] << ": failed to decode BOT_NSEC: " << e.what()
+              << std::endl;
+    return 1;
+  }
   if (decoded.hrp != "nsec") {
     std::cerr << argv[0] << ": BOT_NSEC must be a valid nsec key" << std::endl;
     return 1;
