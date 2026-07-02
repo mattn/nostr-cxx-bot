@@ -43,18 +43,17 @@ static inline std::vector<uint8_t> hex2bytes(const std::string &hex) {
   return bytes;
 }
 
-static bool sign_event(const std::basic_string<uint8_t> sk,
-                       nlohmann::json &ev) {
+static bool sign_event(const uint8_t *sk, nlohmann::json &ev) {
   secp256k1_context *ctx = secp256k1_context_create(SECP256K1_CONTEXT_SIGN |
                                                     SECP256K1_CONTEXT_VERIFY);
 
-  if (!secp256k1_ec_seckey_verify(ctx, sk.data())) {
+  if (!secp256k1_ec_seckey_verify(ctx, sk)) {
     secp256k1_context_destroy(ctx);
     return false;
   }
 
   secp256k1_keypair keypair;
-  if (!secp256k1_keypair_create(ctx, &keypair, sk.data())) {
+  if (!secp256k1_keypair_create(ctx, &keypair, sk)) {
     secp256k1_context_destroy(ctx);
     return false;
   }
