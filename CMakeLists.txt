@@ -12,7 +12,7 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g -std=c++20 -Wall -Wextra ${CMAKE_C_FLAGS}")
 
 #--------------------------------------------------
 # libsecp256k1
-set(LIBSECP256K1_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/build/src/libsecp256k1.a)
+set(LIBSECP256K1_LIBRARIES ${CMAKE_CURRENT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/build/lib/libsecp256k1.a)
 add_custom_target(libsecp256k1 DEPENDS ${LIBSECP256K1_LIBRARIES})
 add_custom_command(
     OUTPUT ${LIBSECP256K1_LIBRARIES}
@@ -20,7 +20,7 @@ add_custom_command(
     COMMAND sh
     ARGS -c 'cmake -B build -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -D BUILD_SHARED_LIBS=off && cmake --build build -t secp256k1'
 )
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/build/src)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/deps/bitcoin-core-libsecp256k1/build/lib)
 
 #--------------------------------------------------
 # libspdlog
