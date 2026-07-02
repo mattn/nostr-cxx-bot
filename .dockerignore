@@ -1,0 +1,19 @@
+# Build artifacts (rebuilt inside the image, must not leak from the host)
+build
+build-static
+**/build
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+
+# VCS / editor noise
+.git
+.gitignore
+.github
+*.md
+
+# Not needed in the build context (and keeps edits from busting the cache)
+Dockerfile
+.dockerignore
