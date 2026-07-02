@@ -5,12 +5,15 @@
 #include <cstdlib>
 #include <ctime>
 #include <exception>
+#include <iomanip>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <cassert>
+
+#include <openssl/evp.h>
 
 #include <libbech32/bech32.h>
 #include <secp256k1.h>
@@ -27,7 +30,7 @@
 static inline std::string digest2hex(const uint8_t *data, size_t len) {
   std::stringstream ss;
   ss << std::hex;
-  for (int i = 0; i < len; ++i) {
+  for (size_t i = 0; i < len; ++i) {
     ss << std::setw(2) << std::setfill('0') << (int)data[i];
   }
   return ss.str();
