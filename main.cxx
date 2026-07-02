@@ -144,12 +144,20 @@ int main(int argc, char* argv[]) {
   }
   uint8_t sk[32];
   bech32::DecodedResult decoded = bech32::decode(nsec);
-  std::cout << decoded.hrp << std::endl;
+  if (decoded.hrp != "nsec") {
+    std::cerr << argv[0] << ": BOT_NSEC must be a valid nsec key" << std::endl;
+    return 1;
+  }
+  unsigned int written = 0;
   convert_bits<5, 8>(decoded.dp.begin(), decoded.dp.end(),
-                     [&, pos = 0U](unsigned char c) mutable {
-                       if (pos < 32)
-                         sk[pos++] = c;
+                     [&](unsigned char c) {
+                       if (written < 32)
+                         sk[written++] = c;
                      });
+  if (written != 32) {
+    std::cerr << argv[0] << ": BOT_NSEC is not a valid 32-byte key" << std::endl;
+    return 1;
+  }
 
   web::websockets::client::websocket_client client;
   try {
@@ -188,7 +196,10 @@ int main(int argc, char* argv[]) {
         ev["created_at"] = now();
         std::vector<std::vector<std::string>> tags = {{"e", payload[2]["id"]}};
         ev["tags"] = tags;
-        sign_event(sk, ev);
+        if (!sign_event(sk, ev)) {
+          std::cerr << "failed to sign event" << std::endl;
+          continue;
+        }
 
         web::websockets::client::websocket_outgoing_message msg;
         nlohmann::json event = {"EVENT", ev};
