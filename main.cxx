@@ -216,9 +216,9 @@ int main(int argc, char* argv[]) {
         }
 
         web::websockets::client::websocket_outgoing_message msg;
-        nlohmann::json event = {"EVENT", ev};
-        std::cout << event.dump() << std::endl;
-        msg.set_utf8_message(event.dump());
+        nlohmann::json reply = {"EVENT", ev};
+        std::cout << reply.dump() << std::endl;
+        msg.set_utf8_message(reply.dump());
         client.send(msg);
       }
     } catch (std::exception &e) {
